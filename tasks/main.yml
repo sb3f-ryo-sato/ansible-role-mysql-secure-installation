@@ -1,0 +1,85 @@
+---
+- name: Install MySQL-python
+  become: true
+  package:
+    name: MySQL-python
+    state: latest
+
+- name: Check /root/.my.cnf
+  become: true
+  stat:
+    path: /root/.my.cnf
+  register: my_cnf
+
+- name: Set root password for localhost
+  become: true
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ mysql_root_password }}"
+    login_password: ""
+    state: present
+  with_items:
+    - localhost
+  when:
+    not my_cnf.stat.exists
+
+- name: Set root password for 127.0.0.1 and ::1
+  become: true
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ mysql_root_password }}"
+    login_password: "{{ mysql_root_password }}"
+    state: present
+  with_items:
+    - 127.0.0.1
+    - ::1
+  when:
+    not my_cnf.stat.exists
+
+- name: Add /root/.my.cnf
+  become: true
+  template:
+    src: my.cnf.j2
+    dest: /root/.my.cnf
+    owner: root
+    group: root
+    mode: 0600
+  when:
+    not my_cnf.stat.exists
+
+- name: Remove anonymous users
+  become: true
+  mysql_user:
+    name: ''
+    host_all: yes
+    state: absent
+
+- name: Disallow root login remotely
+  become: true
+  mysql_user:
+    name: 'root'
+    host: "{{ ansible_nodename }}"
+    state: absent
+
+- name: Remove test database and access to it 1/2
+  become: true
+  mysql_db:
+    name: test
+    state: absent
+
+- name: Remove test database and access to it 2/2
+  become: true
+  command: '/opt/rh/rh-mariadb102/root/usr/bin/mysql -ne "{{ item }}"'
+  with_items:
+    - DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%'
+  changed_when: False
+  ignore_errors: True
+
+- name: Reload privilege tables
+  become: true
+  command: '/opt/rh/rh-mariadb102/root/usr/bin/mysql -ne "{{ item }}"'
+  with_items:
+    - FLUSH PRIVILEGES
+  changed_when: False
