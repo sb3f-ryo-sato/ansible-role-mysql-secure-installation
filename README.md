@@ -12,7 +12,7 @@ Requirements
 Role Variables
 --------------
 
-- `mysql_root_passwor`
+- `mysql_root_password`
 
 Dependencies
 ------------
